@@ -5,14 +5,12 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-
 llm = ChatGoogleGenerativeAI(
     model="gemini-2.0-flash",
     google_api_key=os.getenv("GEMINI_API_KEY"),
     temperature=0.7,
     max_output_tokens=1024
 )
-
 
 story_prompt = ChatPromptTemplate.from_messages([
     ("system", """You are a creative writing assistant. Your stories should be:
@@ -22,7 +20,6 @@ story_prompt = ChatPromptTemplate.from_messages([
     ("human", "Write a {style} story about {topic} in approximately {word_count} words.")
 ])
 
-
 def generate_story(style, topic, word_count):
     formatted_messages = story_prompt.format_messages(
         style=style,
@@ -31,7 +28,6 @@ def generate_story(style, topic, word_count):
     )
     response = llm.invoke(formatted_messages)
     return response.content
-
 
 story1 = generate_story("mystery", "missing cat", "200")
 story2 = generate_story("adventure", "treasure hunt", "300")
