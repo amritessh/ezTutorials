@@ -15,7 +15,7 @@ llm = ChatGoogleGenerativeAI(
     max_output_tokens=1024
 )
 
-# Create tools using @tool decorator
+
 @tool
 def calculator(expression: str) -> str:
     """Perform mathematical calculations like '25 * 17' or '(100 + 50) / 3'."""
@@ -37,13 +37,12 @@ def web_search(query: str) -> str:
 @tool
 def weather_info(city: str) -> str:
     """Get current weather for a city."""
-    # In production, use real weather API
     import random
     temp = random.randint(15, 35)
     condition = random.choice(["sunny", "cloudy", "rainy"])
     return f"Weather in {city}: {temp}°C, {condition}"
 
-# Create agent
+
 tools = [calculator, web_search, weather_info]
 
 def create_agent():
@@ -56,7 +55,7 @@ def create_agent():
         max_iterations=5
     )
 
-# Usage
+
 agent = create_agent()
 
 # Multi-step example
@@ -65,7 +64,7 @@ result = agent.invoke({
 })
 print(result["output"])
 
-# Weather example
+
 weather_result = agent.invoke({
     "input": "What's the weather in Tokyo and calculate 25% of 200"
 })
