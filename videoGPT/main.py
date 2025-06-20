@@ -98,11 +98,13 @@ class VideoGPTStreamingHandler(BaseCallbackHandler):
     def on_llm_new_token(self, token: str, **kwargs) -> None:
         """Stream tokens to UI in real-time."""
         self.text += token
-        self.container.markdown(self.text + "▋")
+        if self.container:
+            self.container.markdown(self.text + "▋")
     
     def on_llm_end(self, response, **kwargs) -> None:
         """Finalize streaming."""
-        self.container.markdown(self.text)
+        if self.container:
+            self.container.markdown(self.text)
 
 class AdvancedVideoProcessor:
     """Advanced video processing with all RAG techniques."""
@@ -246,9 +248,10 @@ class ConversationalVideoGPT:
         return text.strip()
     
     def chat_with_streaming(self, user_question: str, container, retriever_type: str = "compression"):
-        """Handle chat with streaming response - FIXED: Ensures UI display."""
+        """Handle chat with streaming response - FIXED: Completely synchronous."""
         try:
             start_time = time.time()
+            # FIXED: Use system.metrics instead of self.metrics
             self.system.metrics['total_requests'] += 1
             
             # Sanitize input
@@ -258,7 +261,7 @@ class ConversationalVideoGPT:
             # Add user message to memory
             self.conversation_history.append({"role": "user", "content": clean_question})
             
-            # Retrieve relevant context
+            # FIXED: Retrieve relevant context using the video_data retrievers
             retriever = self.video_data['retrievers'][retriever_type]
             relevant_docs = retriever.invoke(clean_question)
             
@@ -269,28 +272,28 @@ class ConversationalVideoGPT:
             chat_prompt = ChatPromptTemplate.from_messages([
                 ("system", """You are VideoGPT, an expert AI assistant specializing in video content analysis.
 
-    Video Metadata:
-    {metadata}
+Video Metadata:
+{metadata}
 
-    Use the conversation history and video context to provide detailed, accurate answers.
-    Be conversational and reference previous parts of our discussion when relevant.
+Use the conversation history and video context to provide detailed, accurate answers.
+Be conversational and reference previous parts of our discussion when relevant.
 
-    Guidelines:
-    - Always base answers on the provided video content
-    - Be comprehensive but concise
-    - If information isn't in the video, say so clearly
-    - Use natural, conversational language
-    - Reference specific parts of the video when helpful"""),
+Guidelines:
+- Always base answers on the provided video content
+- Be comprehensive but concise
+- If information isn't in the video, say so clearly
+- Use natural, conversational language
+- Reference specific parts of the video when helpful"""),
                 
                 ("human", """Conversation History:
-    {history}
+{history}
 
-    Video Context:
-    {context}
+Video Context:
+{context}
 
-    Current Question: {question}
+Current Question: {question}
 
-    Please provide a comprehensive answer based on the video content and our conversation history.""")
+Please provide a comprehensive answer based on the video content and our conversation history.""")
             ])
             
             # Prepare conversation history
@@ -373,6 +376,18 @@ class VideoGPTAnalytics:
             "metadata": video_data['metadata'],
             "analysis_timestamp": datetime.now()
         }
+    
+    def generate_quick_summary(self, video_data: Dict[str, Any]) -> str:
+        """Generate quick summary only."""
+        summary_chain = self._create_summary_chain()
+        content = video_data['documents'][0].page_content[:8000]
+        return summary_chain.invoke({"content": content})
+
+    def generate_deep_insights(self, video_data: Dict[str, Any]) -> str:
+        """Generate deep insights only."""
+        insights_chain = self._create_insights_chain()
+        content = video_data['documents'][0].page_content[:8000]
+        return insights_chain.invoke({"content": content})
     
     def _create_summary_chain(self):
         """Create summary generation chain."""
@@ -545,7 +560,7 @@ def main():
                 # Update metrics
                 st.session_state.videogpt.metrics['total_requests'] += 1
                 
-                # FIXED: Process video synchronously
+                # Process video synchronously
                 video_data = st.session_state.processor.process_video_advanced(st.session_state.current_url)
                 
                 st.session_state.video_data = video_data
@@ -585,18 +600,23 @@ def main():
                 response_container = st.empty()
                 
                 if enable_streaming:
-                    # FIXED: Streaming response - synchronous call
-                    st.session_state.conversational_gpt.chat_with_streaming(
+                    # Streaming response - synchronous call
+                    response = st.session_state.conversational_gpt.chat_with_streaming(
                         user_question, response_container, retriever_type
                     )
+                    # Ensure response is displayed
+                    if response:
+                        response_container.markdown(response)
                 else:
                     # Non-streaming response
                     with st.spinner("Thinking..."):
                         response = st.session_state.conversational_gpt.chat_with_streaming(
                             user_question, response_container, retriever_type
                         )
+                        if response:
+                            response_container.markdown(response)
             
-            # FIXED: Conversation history - only show if conversational_gpt exists
+            # Conversation history - only show if conversational_gpt exists
             if 'conversational_gpt' in st.session_state and st.session_state.conversational_gpt:
                 # Show conversation statistics
                 with st.expander("📊 Conversation Statistics"):
@@ -622,31 +642,69 @@ def main():
         elif analysis_mode == "Complete Analysis":
             st.header("📊 Complete Video Analysis")
             
-            if st.button("🔬 Generate Complete Analysis"):
+            if st.button("🔬 Generate Complete Analysis", type="primary"):
                 with st.spinner("🧠 Generating comprehensive analysis..."):
-                    # FIXED: Synchronous analysis call
-                    analysis = st.session_state.analytics.generate_comprehensive_analysis(
-                        st.session_state.video_data
-                    )
-                    
-                    # Display results in tabs
-                    tab1, tab2, tab3, tab4 = st.tabs(["📝 Summary", "💡 Insights", "💬 Key Quotes", "🏗️ Structure"])
-                    
-                    with tab1:
+                    try:
+                        # Complete analysis with all sections
+                        analysis = st.session_state.analytics.generate_comprehensive_analysis(
+                            st.session_state.video_data
+                        )
+                        
+                        # Display results in tabs
+                        tab1, tab2, tab3, tab4 = st.tabs(["📝 Summary", "💡 Insights", "💬 Key Quotes", "🏗️ Structure"])
+                        
+                        with tab1:
+                            st.markdown("### 📝 Video Summary")
+                            st.write(analysis['summary'])
+                        
+                        with tab2:
+                            st.markdown("### 💡 Key Insights")
+                            st.write(analysis['insights'])
+                        
+                        with tab3:
+                            st.markdown("### 💬 Memorable Quotes")
+                            st.write(analysis['quotes'])
+                        
+                        with tab4:
+                            st.markdown("### 🏗️ Content Structure")
+                            st.write(analysis['structure'])
+                            
+                    except Exception as e:
+                        st.error(f"❌ Analysis failed: {str(e)}")
+        
+        elif analysis_mode == "Quick Summary":
+            st.header("📝 Quick Summary")
+            
+            if st.button("📋 Generate Summary", type="primary"):
+                with st.spinner("🧠 Generating quick summary..."):
+                    try:
+                        # Generate only summary
+                        summary = st.session_state.analytics.generate_quick_summary(
+                            st.session_state.video_data
+                        )
+                        
                         st.markdown("### 📝 Video Summary")
-                        st.write(analysis['summary'])
-                    
-                    with tab2:
-                        st.markdown("### 💡 Key Insights")
-                        st.write(analysis['insights'])
-                    
-                    with tab3:
-                        st.markdown("### 💬 Memorable Quotes")
-                        st.write(analysis['quotes'])
-                    
-                    with tab4:
-                        st.markdown("### 🏗️ Content Structure")
-                        st.write(analysis['structure'])
+                        st.write(summary)
+                        
+                    except Exception as e:
+                        st.error(f"❌ Summary generation failed: {str(e)}")
+        
+        elif analysis_mode == "Deep Insights":
+            st.header("💡 Deep Insights")
+            
+            if st.button("🔍 Generate Insights", type="primary"):
+                with st.spinner("🧠 Extracting deep insights..."):
+                    try:
+                        # Generate only insights
+                        insights = st.session_state.analytics.generate_deep_insights(
+                            st.session_state.video_data
+                        )
+                        
+                        st.markdown("### 💡 Deep Insights")
+                        st.write(insights)
+                        
+                    except Exception as e:
+                        st.error(f"❌ Insights generation failed: {str(e)}")
         
         # Video metadata display
         with st.expander("📋 Video Metadata & Processing Details"):

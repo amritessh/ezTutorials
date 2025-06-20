@@ -292,5 +292,18 @@ async def test_analytics_engine():
     except Exception as e:
         print(f"❌ Test failed: {e}")
 
+
+        def generate_quick_summary(self, video_data: Dict[str, Any]) -> str:
+            """Generate quick summary only."""
+            summary_chain = self._create_summary_chain()
+            content = video_data['documents'][0].page_content[:8000]
+            return summary_chain.invoke({"content": content})
+
+        def generate_deep_insights(self, video_data: Dict[str, Any]) -> str:
+            """Generate deep insights only."""
+            insights_chain = self._create_insights_chain()
+            content = video_data['documents'][0].page_content[:8000]
+            return insights_chain.invoke({"content": content})
+
 if __name__ == "__main__":
     asyncio.run(test_analytics_engine())
