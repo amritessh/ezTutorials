@@ -2,6 +2,8 @@
 
 ![VideoGPT Banner](https://img.shields.io/badge/VideoGPT-AI%20Video%20Analysis-blue?style=for-the-badge&logo=youtube&logoColor=white)
 
+Deployed - https://amritessh-eztutorials-videogptmain-zvbpbl.streamlit.app/
+
 **VideoGPT** is a sophisticated AI-powered application that transforms YouTube videos into interactive, intelligent conversations. Built with cutting-edge LangChain technology, it demonstrates advanced RAG (Retrieval-Augmented Generation) techniques, real-time streaming, and production-ready AI architecture.
 
 ## 🚀 Features
