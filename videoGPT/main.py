@@ -246,10 +246,9 @@ class ConversationalVideoGPT:
         return text.strip()
     
     def chat_with_streaming(self, user_question: str, container, retriever_type: str = "compression"):
-        """Handle chat with streaming response - FIXED: Completely synchronous."""
+        """Handle chat with streaming response - FIXED: Ensures UI display."""
         try:
             start_time = time.time()
-            # FIXED: Use system.metrics instead of self.metrics
             self.system.metrics['total_requests'] += 1
             
             # Sanitize input
@@ -259,7 +258,7 @@ class ConversationalVideoGPT:
             # Add user message to memory
             self.conversation_history.append({"role": "user", "content": clean_question})
             
-            # FIXED: Retrieve relevant context using the video_data retrievers
+            # Retrieve relevant context
             retriever = self.video_data['retrievers'][retriever_type]
             relevant_docs = retriever.invoke(clean_question)
             
@@ -270,28 +269,28 @@ class ConversationalVideoGPT:
             chat_prompt = ChatPromptTemplate.from_messages([
                 ("system", """You are VideoGPT, an expert AI assistant specializing in video content analysis.
 
-Video Metadata:
-{metadata}
+    Video Metadata:
+    {metadata}
 
-Use the conversation history and video context to provide detailed, accurate answers.
-Be conversational and reference previous parts of our discussion when relevant.
+    Use the conversation history and video context to provide detailed, accurate answers.
+    Be conversational and reference previous parts of our discussion when relevant.
 
-Guidelines:
-- Always base answers on the provided video content
-- Be comprehensive but concise
-- If information isn't in the video, say so clearly
-- Use natural, conversational language
-- Reference specific parts of the video when helpful"""),
+    Guidelines:
+    - Always base answers on the provided video content
+    - Be comprehensive but concise
+    - If information isn't in the video, say so clearly
+    - Use natural, conversational language
+    - Reference specific parts of the video when helpful"""),
                 
                 ("human", """Conversation History:
-{history}
+    {history}
 
-Video Context:
-{context}
+    Video Context:
+    {context}
 
-Current Question: {question}
+    Current Question: {question}
 
-Please provide a comprehensive answer based on the video content and our conversation history.""")
+    Please provide a comprehensive answer based on the video content and our conversation history.""")
             ])
             
             # Prepare conversation history
@@ -314,6 +313,10 @@ Please provide a comprehensive answer based on the video content and our convers
                 "question": clean_question
             })
             
+            # FIXED: Ensure response is displayed in container
+            if container and response:
+                container.markdown(response)
+            
             # Add response to history
             self.conversation_history.append({"role": "assistant", "content": response})
             
@@ -325,7 +328,8 @@ Please provide a comprehensive answer based on the video content and our convers
         except Exception as e:
             self.system.logger.error(f"Chat error: {e}")
             self.system.metrics['failed_requests'] += 1
-            container.error("I encountered an error processing your question. Please try again.")
+            if container:
+                container.error("I encountered an error processing your question. Please try again.")
             return None
     
     def get_chat_statistics(self):
