@@ -1,10 +1,4 @@
-from dotenv import load_dotenv
-import os
-
-load_dotenv()
-openai_api_key = os.getenv("OPENAI_API_KEY")
-
-from langchain_community.document_loaders import (
+from langchain.document_loaders import (
     PyPDFLoader, 
     TextLoader, 
     Docx2txtLoader
@@ -39,18 +33,16 @@ class DocumentProcessor:
                     loader = TextLoader(file_path, encoding='utf-8')
                     documents.extend(loader.load())
                 
-                print(f"Loaded: {filename}")
+                print(f"✓ Loaded: {filename}")
                 
             except Exception as e:
-                print(f"Error loading {filename}: {e}")
+                print(f"✗ Error loading {filename}: {e}")
         
         return documents
     
     def split_documents(self, documents):
-
         chunks = self.text_splitter.split_documents(documents)
         
-
         for i, chunk in enumerate(chunks):
             chunk.metadata.update({
                 'chunk_id': i,
@@ -66,4 +58,3 @@ documents = processor.load_documents_from_directory('./documents')
 document_chunks = processor.split_documents(documents)
 
 print(f"Processed {len(documents)} documents into {len(document_chunks)} chunks")
-
