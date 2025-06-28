@@ -1,0 +1,8 @@
+Retrieval-Augmented Generation (RAG) is a technique that combines information retrieval with text generation. The main benefits of RAG are:
+
+1. **Improved Factual Accuracy**: By retrieving relevant documents from a knowledge base, RAG can generate answers that are grounded in real data, reducing hallucinations.
+2. **Up-to-date Knowledge**: RAG can access the latest information stored in external sources, overcoming the limitations of static model training data.
+3. **Explainability**: RAG can cite the sources used to generate an answer, making the process more transparent and trustworthy.
+4. **Domain Adaptability**: RAG can be easily adapted to new domains by changing the underlying document store, without retraining the language model.
+
+In summary, RAG enables more accurate, current, and explainable responses by combining retrieval and generation. 
