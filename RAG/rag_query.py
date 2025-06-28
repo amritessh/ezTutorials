@@ -1,102 +1,81 @@
-from langchain_openai import OpenAI
-from langchain_core.prompts import PromptTemplate
-from langchain.chains import RetrievalQA
-from langchain.chains.question_answering import load_qa_chain
-import time
-from typing import List
+from langchain.embeddings import HuggingFaceEmbeddings
+from langchain.vectorstores import FAISS
+from sentence_transformers import SentenceTransformer
+
 
 from dotenv import load_dotenv
 import os
 
 load_dotenv()
 openai_api_key = os.getenv("OPENAI_API_KEY")
-
-class RAGQueryEngine:
-    def __init__(self, vectorstore, openai_api_key: str):
-        self.vectorstore = vectorstore
-        self.llm = OpenAI(
-            openai_api_key=openai_api_key,
-            temperature=0.3,  # Lower temperature for more focused responses
-            max_tokens=500
+class HuggingFaceVectorStore:
+    def __init__(self, model_name: str = "sentence-transformers/all-MiniLM-L6-v2"):
+        self.embeddings = HuggingFaceEmbeddings(
+            model_name=model_name,
+            model_kwargs={'device': 'cpu'}, 
+            encode_kwargs={'normalize_embeddings': True}
         )
-        
-        # Create custom prompt template
-        self.prompt_template = """Use the following pieces of context to answer the question at the end. 
-        If you don't know the answer based on the context provided, just say that you don't know, don't try to make up an answer.
-        Always cite the source document when possible.
-
-        Context:
-        {context}
-
-        Question: {question}
-
-        Helpful Answer:"""
-        
-        self.PROMPT = PromptTemplate(
-            template=self.prompt_template,
-            input_variables=["context", "question"]
-        )
-        
-        # Create retrieval QA chain
-        self.qa_chain = RetrievalQA.from_chain_type(
-            llm=self.llm,
-            chain_type="stuff",
-            retriever=self.vectorstore.as_retriever(
-                search_kwargs={"k": 5}  # Retrieve top 5 similar chunks
-            ),
-            chain_type_kwargs={"prompt": self.PROMPT},
-            return_source_documents=True
-        )
+        self.vectorstore = None
+        self.model_name = model_name
+        print(f"Initialized Hugging Face embeddings with {model_name}")
     
-    def query(self, question: str):
-        """Process a question and return answer with sources"""
-        print(f"Processing question: {question}")
-        start_time = time.time()
+    def create_vectorstore(self, documents):
+        print("Creating embeddings and vector store...")
+        print(f"Processing {len(documents)} document chunks...")
         
+        self.vectorstore = FAISS.from_documents(
+            documents=documents,
+            embedding=self.embeddings
+        )
+        
+        print(f"Vector store created with {self.vectorstore.index.ntotal} vectors")
+        return self.vectorstore
+    
+    def save_vectorstore(self, path: str = "./vectorstore"):
+
+        if self.vectorstore:
+            self.vectorstore.save_local(path)
+
+            with open(f"{path}/model_info.txt", "w") as f:
+                f.write(self.model_name)
+            print(f"Vector store saved to {path}")
+        else:
+            print("No vector store to save")
+    
+    def load_vectorstore(self, path: str = "./vectorstore"):
+
         try:
-            result = self.qa_chain({"query": question})
+            with open(f"{path}/model_info.txt", "r") as f:
+                saved_model_name = f.read().strip()
             
-            response = {
-                "question": question,
-                "answer": result["result"],
-                "sources": [],
-                "processing_time": round(time.time() - start_time, 2)
-            }
+            if saved_model_name != self.model_name:
+                print(f"Warning: Saved model ({saved_model_name}) differs from current model ({self.model_name})")
             
-            # Extract source information
-            for doc in result["source_documents"]:
-                source_info = {
-                    "content": doc.page_content[:200] + "...",  # First 200 chars
-                    "source": doc.metadata.get('source_name', 'Unknown'),
-                    "chunk_id": doc.metadata.get('chunk_id', 'N/A')
-                }
-                response["sources"].append(source_info)
-            
-            return response
-            
+            self.vectorstore = FAISS.load_local(
+                path, 
+                self.embeddings,
+                allow_dangerous_deserialization=True
+            )
+            print(f"Vector store loaded from {path}")
+            return self.vectorstore
         except Exception as e:
-            return {
-                "question": question,
-                "answer": f"Error processing question: {str(e)}",
-                "sources": [],
-                "processing_time": round(time.time() - start_time, 2)
-            }
+            print(f"Error loading vector store: {e}")
+            return None
     
-    def batch_query(self, questions: List[str]):
-        """Process multiple questions"""
-        results = []
-        for question in questions:
-            result = self.query(question)
-            results.append(result)
-            print(f"✓ Processed: {question[:50]}...")
-        
-        return results
+    def add_documents(self, new_documents):
+        if self.vectorstore:
+            self.vectorstore.add_documents(new_documents)
+            print(f"Added {len(new_documents)} new documents")
+        else:
+            print("No existing vector store found")
+    
+    def similarity_search_with_score(self, query: str, k: int = 5):
+        if self.vectorstore:
+            docs_and_scores = self.vectorstore.similarity_search_with_score(query, k=k)
+            return docs_and_scores
+        return []
 
 # Usage example
-rag_engine = RAGQueryEngine(vectorstore, openai_api_key)
-
-# Single query
-result = rag_engine.query("What are the main benefits of renewable energy?")
-print(f"Answer: {result['answer']}")
-print(f"Sources: {len(result['sources'])} documents used")
-print(f"Processing time: {result['processing_time']} seconds")
+vector_manager = HuggingFaceVectorStore("sentence-transformers/all-MiniLM-L6-v2")
+vectorstore = vector_manager.create_vectorstore(document_chunks)
+vector_manager.save_vectorstore("./my_vectorstore")
