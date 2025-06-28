@@ -1,0 +1,19 @@
+Sample Document for RAG Testing
+
+This is a sample text document that will be used to test the document loading and processing functionality of our RAG system.
+
+The document contains multiple paragraphs with various types of content including:
+- Technical information
+- General knowledge
+- Sample text for processing
+
+This document will be split into chunks by the RecursiveCharacterTextSplitter, which will create overlapping chunks to maintain context between different sections of the document.
+
+The chunking process will help in creating a more effective retrieval system by breaking down large documents into manageable pieces that can be easily searched and retrieved based on user queries.
+
+Each chunk will be assigned metadata including:
+- chunk_id: A unique identifier for each chunk
+- chunk_length: The length of the chunk content
+- source_name: The name of the source file
+
+This metadata will be useful for tracking and organizing the chunks in the vector database. 

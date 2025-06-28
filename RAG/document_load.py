@@ -4,7 +4,7 @@ import os
 load_dotenv()
 openai_api_key = os.getenv("OPENAI_API_KEY")
 
-from langchain.document_loaders import (
+from langchain_community.document_loaders import (
     PyPDFLoader, 
     TextLoader, 
     Docx2txtLoader
